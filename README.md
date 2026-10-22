@@ -15,8 +15,6 @@ A small to-do web app with reminders. Create a task with a title, a reminder tim
 - Express
 - Plain HTML and JavaScript for the page
 
-Built with the help of Claude, an AI coding assistant.
-
 ## How to run it
 
 You need [Node.js](https://nodejs.org) installed.
