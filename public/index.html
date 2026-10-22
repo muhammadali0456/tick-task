@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TickTask</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    h1 { margin-bottom: 0.5rem; }
+    form { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
+    label { font-size: 0.9rem; }
+    input, button { font: inherit; padding: 0.4rem; }
+    button { cursor: pointer; }
+    .error { color: #b00020; min-height: 1.2em; }
+    ul { list-style: none; padding: 0; }
+    li { border: 1px solid #ddd; border-radius: 6px; padding: 0.6rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .meta { font-size: 0.85rem; color: #555; }
+    .done { color: #2e7d32; }
+  </style>
+</head>
+<body>
+  <h1>TickTask</h1>
+
+  <form id="task-form">
+    <label>Title <input id="title" required /></label>
+    <label>Reminder time <input id="reminder" type="datetime-local" required /></label>
+    <label>Expiry time <input id="expiry" type="datetime-local" required /></label>
+    <button type="submit">Add task</button>
+    <div class="error" id="error"></div>
+  </form>
+
+  <ul id="task-list"></ul>
+
+  <script>
+    const form = document.getElementById("task-form");
+    const list = document.getElementById("task-list");
+    const errorBox = document.getElementById("error");
+    const alerted = new Set();
+
+    async function loadTasks() {
+      const res = await fetch("/tasks");
+      const tasks = await res.json();
+      list.innerHTML = "";
+      for (const task of tasks) {
+        if (task.reminderSent && !alerted.has(task.id)) {
+          alerted.add(task.id);
+          alert(`Reminder: "${task.title}" expires at ${new Date(task.expiryTime).toLocaleString()}`);
+        }
+        const li = document.createElement("li");
+        const info = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = task.title;
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML =
+          `Reminder: ${new Date(task.reminderTime).toLocaleString()}` +
+          (task.reminderSent ? ' <span class="done">(sent)</span>' : "") +
+          `<br>Expires: ${new Date(task.expiryTime).toLocaleString()}`;
+        info.append(title, meta);
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = async () => {
+          await fetch(`/tasks/${task.id}`, { method: "DELETE" });
+          loadTasks();
+        };
+        li.append(info, del);
+        list.append(li);
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorBox.textContent = "";
+      const body = {
+        title: document.getElementById("title").value,
+        reminderTime: new Date(document.getElementById("reminder").value).toISOString(),
+        expiryTime: new Date(document.getElementById("expiry").value).toISOString(),
+      };
+      const res = await fetch("/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        errorBox.textContent = (await res.json()).error;
+        return;
+      }
+      form.reset();
+      loadTasks();
+    });
+
+    loadTasks();
+    setInterval(loadTasks, 5000);
+  </script>
+</body>
+</html>
