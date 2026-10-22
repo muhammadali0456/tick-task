@@ -12,8 +12,21 @@ app.use(express.static(path.join(__dirname, "public")));
 // In-memory storage: tasks are lost when the server restarts.
 const tasks = [];
 
+// Fire each due reminder once.
+function checkReminders() {
+  const now = new Date();
+  for (const task of tasks) {
+    if (!task.reminderSent && new Date(task.reminderTime) <= now) {
+      task.reminderSent = true;
+      console.log(`[REMINDER] "${task.title}" expires at ${task.expiryTime}`);
+    }
+  }
+}
+
 // GET /tasks - list all tasks
 app.get("/tasks", (req, res) => {
+  // Also check here, since on Vercel the server only runs during requests.
+  checkReminders();
   res.json(tasks);
 });
 
@@ -58,17 +71,14 @@ app.delete("/tasks/:id", (req, res) => {
   res.json(removed);
 });
 
-// Reminder checker: every few seconds, fire each due reminder once.
-setInterval(() => {
-  const now = new Date();
-  for (const task of tasks) {
-    if (!task.reminderSent && new Date(task.reminderTime) <= now) {
-      task.reminderSent = true;
-      console.log(`[REMINDER] "${task.title}" expires at ${task.expiryTime}`);
-    }
-  }
-}, CHECK_INTERVAL_MS);
+// Vercel imports the app; running `node server.js` starts it locally.
+module.exports = app;
 
-app.listen(PORT, () => {
-  console.log(`TickTask running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  // Reminder checker: every few seconds, fire each due reminder once.
+  setInterval(checkReminders, CHECK_INTERVAL_MS);
+
+  app.listen(PORT, () => {
+    console.log(`TickTask running at http://localhost:${PORT}`);
+  });
+}
