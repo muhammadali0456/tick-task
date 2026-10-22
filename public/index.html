@@ -2,79 +2,446 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <title>TickTask</title>
+
+  <!-- Home screen app mode on iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TickTask" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" href="/icon-192.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; color: #222; }
-    h1 { margin-bottom: 0.5rem; }
-    form { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
-    label { font-size: 0.9rem; }
-    input, button { font: inherit; padding: 0.4rem; }
-    button { cursor: pointer; }
-    .error { color: #b00020; min-height: 1.2em; }
-    ul { list-style: none; padding: 0; }
-    li { border: 1px solid #ddd; border-radius: 6px; padding: 0.6rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-    .meta { font-size: 0.85rem; color: #555; }
-    .done { color: #2e7d32; }
+    :root {
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --text: #000000;
+      --secondary: #8e8e93;
+      --separator: rgba(60, 60, 67, 0.29);
+      --blue: #007aff;
+      --red: #ff3b30;
+      --green: #34c759;
+      --orange: #ff9500;
+      --fill: rgba(118, 118, 128, 0.12);
+      --bar: rgba(249, 249, 249, 0.8);
+      --sheet-bg: #f2f2f7;
+      --dim: rgba(0, 0, 0, 0.4);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000;
+        --card: #1c1c1e;
+        --text: #ffffff;
+        --secondary: #8e8e93;
+        --separator: rgba(84, 84, 88, 0.6);
+        --blue: #0a84ff;
+        --red: #ff453a;
+        --green: #30d158;
+        --orange: #ff9f0a;
+        --fill: rgba(118, 118, 128, 0.24);
+        --bar: rgba(22, 22, 23, 0.8);
+        --sheet-bg: #1c1c1e;
+        --dim: rgba(0, 0, 0, 0.6);
+      }
+      .sheet .group { background: #2c2c2e; }
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+      font-size: 17px;
+      letter-spacing: -0.41px;
+      -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none;
+      user-select: none;
+      overscroll-behavior-y: none;
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+    /* Navigation bar */
+    .navbar {
+      position: sticky; top: 0; z-index: 10;
+      padding: env(safe-area-inset-top) 16px 0;
+      background: transparent;
+      transition: background 0.2s;
+    }
+    .navbar.scrolled {
+      background: var(--bar);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+      box-shadow: 0 0.5px 0 var(--separator);
+    }
+    .navbar-row { height: 44px; display: flex; align-items: center; justify-content: space-between; }
+    .navbar-small-title { font-weight: 600; opacity: 0; transition: opacity 0.2s; position: absolute; left: 50%; transform: translateX(-50%); }
+    .navbar.scrolled .navbar-small-title { opacity: 1; }
+    .nav-btn { color: var(--blue); font-size: 17px; display: flex; align-items: center; gap: 4px; min-height: 44px; }
+    .nav-btn:active { opacity: 0.4; }
+    .plus { font-size: 28px; font-weight: 300; line-height: 1; }
+
+    .large-title { font-size: 34px; font-weight: 700; letter-spacing: 0.37px; margin: 0 20px 8px; }
+    .subtitle { color: var(--secondary); font-size: 15px; margin: -4px 20px 16px; }
+
+    /* Inset grouped list */
+    .section-header { color: var(--secondary); font-size: 13px; text-transform: uppercase; margin: 22px 36px 7px; letter-spacing: -0.08px; }
+    .group { background: var(--card); border-radius: 10px; margin: 0 16px; overflow: hidden; }
+    .row-wrap { position: relative; overflow: hidden; }
+    .row-wrap + .row-wrap .row::before {
+      content: ""; position: absolute; top: 0; left: 56px; right: 0; height: 0.5px; background: var(--separator);
+    }
+    .row {
+      position: relative; background: var(--card); display: flex; align-items: center; gap: 12px;
+      padding: 11px 16px; min-height: 60px; touch-action: pan-y; will-change: transform;
+    }
+    .row.animate { transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+    .row-icon {
+      width: 28px; height: 28px; border-radius: 7px; flex: none; display: grid; place-items: center; color: #fff; font-size: 15px;
+    }
+    .row-icon.pending { background: var(--orange); }
+    .row-icon.sent { background: var(--green); }
+    .row-icon.expired { background: var(--secondary); }
+    .row-body { flex: 1; min-width: 0; }
+    .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-meta { color: var(--secondary); font-size: 13px; margin-top: 2px; letter-spacing: -0.08px; }
+    .row-meta b { font-weight: 500; }
+    .badge { font-size: 13px; color: var(--secondary); flex: none; }
+    .delete-action {
+      position: absolute; top: 0; right: 0; bottom: 0; width: 90px; background: var(--red); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+
+    .empty { text-align: center; color: var(--secondary); padding: 80px 40px; }
+    .empty-icon { font-size: 54px; margin-bottom: 12px; opacity: 0.6; }
+    .empty h2 { color: var(--text); font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+    .empty p { margin: 0 0 20px; font-size: 15px; }
+    .filled-btn { background: var(--blue); color: #fff; border-radius: 12px; padding: 12px 22px; font-weight: 600; }
+    .filled-btn:active { opacity: 0.7; }
+    .footer-hint { color: var(--secondary); font-size: 13px; margin: 8px 36px 40px; }
+
+    /* Bottom sheet */
+    .backdrop {
+      position: fixed; inset: 0; background: var(--dim); opacity: 0; pointer-events: none; transition: opacity 0.35s; z-index: 20;
+    }
+    .backdrop.open { opacity: 1; pointer-events: auto; }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+      background: var(--sheet-bg); border-radius: 12px 12px 0 0;
+      height: calc(100% - env(safe-area-inset-top) - 12px);
+      transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+      display: flex; flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .sheet.open { transform: translateY(0); }
+    .grabber { width: 36px; height: 5px; border-radius: 3px; background: var(--separator); margin: 6px auto 0; }
+    .sheet-header { height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; position: relative; }
+    .sheet-title { font-weight: 600; position: absolute; left: 50%; transform: translateX(-50%); }
+    .sheet-header .nav-btn[disabled] { opacity: 0.3; pointer-events: none; }
+    .bold { font-weight: 600; }
+    .sheet-body { overflow-y: auto; flex: 1; padding-bottom: 30px; }
+
+    .field { display: flex; align-items: center; min-height: 48px; padding: 0 16px; position: relative; gap: 12px; }
+    .field + .field::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 0.5px; background: var(--separator); }
+    .field label { flex: none; }
+    .field input {
+      flex: 1; min-width: 0; font: inherit; letter-spacing: inherit; color: var(--text); background: transparent; border: 0; outline: 0;
+      -webkit-user-select: text; user-select: text;
+    }
+    .field input[type="text"] { padding: 12px 0; }
+    .field input[type="datetime-local"] {
+      -webkit-appearance: none; appearance: none; flex: none; margin-left: auto;
+      background: var(--fill); border-radius: 7px; padding: 6px 10px; color: var(--text); font-size: 17px; min-height: 34px;
+    }
+    .field input::placeholder { color: var(--secondary); opacity: 0.7; }
+    .field-error { color: var(--red); font-size: 13px; margin: 8px 36px 0; min-height: 18px; }
+
+    /* Notification banner */
+    .banner {
+      position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px); z-index: 40;
+      background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+      border-radius: 20px; padding: 12px 14px; display: flex; gap: 10px; align-items: center;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+      transform: translateY(calc(-100% - 60px)); transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+      max-width: 500px; margin: 0 auto;
+    }
+    .banner.show { transform: translateY(0); }
+    .banner img { width: 38px; height: 38px; border-radius: 9px; flex: none; }
+    .banner-text { flex: 1; min-width: 0; }
+    .banner-top { display: flex; justify-content: space-between; font-size: 15px; }
+    .banner-app { font-weight: 600; }
+    .banner-time { color: var(--secondary); font-size: 13px; }
+    .banner-msg { font-size: 15px; margin-top: 1px; }
+
+    /* Action sheet confirm */
+    .action-sheet {
+      position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 31;
+      transform: translateY(calc(100% + 40px)); transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+      max-width: 500px; margin: 0 auto;
+    }
+    .action-sheet.open { transform: translateY(0); }
+    .action-group { background: var(--bar); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); border-radius: 14px; overflow: hidden; text-align: center; }
+    .action-msg { color: var(--secondary); font-size: 13px; padding: 14px 16px; }
+    .action-btn { display: block; width: 100%; height: 57px; font-size: 20px; color: var(--blue); border-top: 0.5px solid var(--separator); }
+    .action-btn.destructive { color: var(--red); }
+    .action-btn.cancel { margin-top: 8px; background: var(--card); border-radius: 14px; border: 0; font-weight: 600; }
+    .action-btn:active { background: var(--fill); }
+    #confirm-backdrop { z-index: 30; }
+
+    main { max-width: 700px; margin: 0 auto; }
   </style>
 </head>
 <body>
-  <h1>TickTask</h1>
+  <header class="navbar" id="navbar">
+    <div class="navbar-row">
+      <span></span>
+      <span class="navbar-small-title">TickTask</span>
+      <button class="nav-btn" id="open-sheet" aria-label="Add task"><span class="plus">+</span></button>
+    </div>
+  </header>
 
-  <form id="task-form">
-    <label>Title <input id="title" required /></label>
-    <label>Reminder time <input id="reminder" type="datetime-local" required /></label>
-    <label>Expiry time <input id="expiry" type="datetime-local" required /></label>
-    <button type="submit">Add task</button>
-    <div class="error" id="error"></div>
-  </form>
+  <main>
+    <h1 class="large-title">TickTask</h1>
+    <div class="subtitle" id="subtitle"></div>
+    <div id="content"></div>
+  </main>
 
-  <ul id="task-list"></ul>
+  <!-- Add task sheet -->
+  <div class="backdrop" id="backdrop"></div>
+  <section class="sheet" id="sheet" aria-hidden="true">
+    <div class="grabber"></div>
+    <div class="sheet-header">
+      <button class="nav-btn" id="cancel-sheet">Cancel</button>
+      <span class="sheet-title">New Task</span>
+      <button class="nav-btn bold" id="save-task" disabled>Add</button>
+    </div>
+    <div class="sheet-body">
+      <div class="section-header">Task</div>
+      <div class="group">
+        <div class="field"><input type="text" id="title" placeholder="Title" autocomplete="off" enterkeyhint="done" /></div>
+      </div>
+
+      <div class="section-header">Times</div>
+      <div class="group">
+        <div class="field"><label for="reminder">Remind me</label><input type="datetime-local" id="reminder" /></div>
+        <div class="field"><label for="expiry">Expires</label><input type="datetime-local" id="expiry" /></div>
+      </div>
+      <div class="field-error" id="error"></div>
+    </div>
+  </section>
+
+  <!-- Delete confirmation -->
+  <div class="backdrop" id="confirm-backdrop"></div>
+  <div class="action-sheet" id="action-sheet">
+    <div class="action-group">
+      <div class="action-msg" id="action-msg">This task will be deleted.</div>
+      <button class="action-btn destructive" id="confirm-delete">Delete Task</button>
+    </div>
+    <button class="action-btn cancel" id="cancel-delete">Cancel</button>
+  </div>
+
+  <!-- Reminder banner -->
+  <div class="banner" id="banner" role="alert">
+    <img src="/apple-touch-icon.png" alt="" />
+    <div class="banner-text">
+      <div class="banner-top"><span class="banner-app">TickTask</span><span class="banner-time">now</span></div>
+      <div class="banner-msg" id="banner-msg"></div>
+    </div>
+  </div>
 
   <script>
-    const form = document.getElementById("task-form");
-    const list = document.getElementById("task-list");
-    const errorBox = document.getElementById("error");
+    const $ = (id) => document.getElementById(id);
+    const content = $("content");
     const alerted = new Set();
+    let firstLoad = true;
+    let pendingDeleteId = null;
 
-    async function loadTasks() {
-      const res = await fetch("/tasks");
-      const tasks = await res.json();
-      list.innerHTML = "";
-      for (const task of tasks) {
-        if (task.reminderSent && !alerted.has(task.id)) {
-          alerted.add(task.id);
-          alert(`Reminder: "${task.title}" expires at ${new Date(task.expiryTime).toLocaleString()}`);
-        }
-        const li = document.createElement("li");
-        const info = document.createElement("div");
-        const title = document.createElement("strong");
-        title.textContent = task.title;
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.innerHTML =
-          `Reminder: ${new Date(task.reminderTime).toLocaleString()}` +
-          (task.reminderSent ? ' <span class="done">(sent)</span>' : "") +
-          `<br>Expires: ${new Date(task.expiryTime).toLocaleString()}`;
-        info.append(title, meta);
-        const del = document.createElement("button");
-        del.textContent = "Delete";
-        del.onclick = async () => {
-          await fetch(`/tasks/${task.id}`, { method: "DELETE" });
-          loadTasks();
-        };
-        li.append(info, del);
-        list.append(li);
-      }
+    // Navbar blur on scroll
+    addEventListener("scroll", () => $("navbar").classList.toggle("scrolled", scrollY > 30), { passive: true });
+
+    function fmt(iso) {
+      const d = new Date(iso);
+      const now = new Date();
+      const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+      const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      if (d.toDateString() === now.toDateString()) return `Today, ${time}`;
+      if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+      return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
     }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      errorBox.textContent = "";
+    function rowFor(task) {
+      const expired = new Date(task.expiryTime) <= new Date();
+      const status = expired ? "expired" : task.reminderSent ? "sent" : "pending";
+      const icon = expired ? "✕" : task.reminderSent ? "✓" : "⏰";
+
+      const wrap = document.createElement("div");
+      wrap.className = "row-wrap";
+
+      const del = document.createElement("button");
+      del.className = "delete-action";
+      del.textContent = "Delete";
+      del.onclick = () => askDelete(task);
+
+      const row = document.createElement("div");
+      row.className = "row animate";
+      row.innerHTML = `
+        <div class="row-icon ${status}">${icon}</div>
+        <div class="row-body">
+          <div class="row-title"></div>
+          <div class="row-meta"><b>Remind</b> ${fmt(task.reminderTime)} · <b>Due</b> ${fmt(task.expiryTime)}</div>
+        </div>
+        <div class="badge">${expired ? "Expired" : task.reminderSent ? "Reminded" : ""}</div>`;
+      row.querySelector(".row-title").textContent = task.title;
+      enableSwipe(row);
+
+      wrap.append(del, row);
+      return wrap;
+    }
+
+    // Swipe left to reveal Delete, like iOS Mail
+    let openRow = null;
+    function enableSwipe(row) {
+      let startX = 0, startY = 0, dx = 0, base = 0, dragging = false, locked = null;
+      row.addEventListener("touchstart", (e) => {
+        if (openRow && openRow !== row) closeRow(openRow);
+        startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        base = row._open ? -90 : 0; dragging = true; locked = null;
+        row.classList.remove("animate");
+      }, { passive: true });
+      row.addEventListener("touchmove", (e) => {
+        if (!dragging) return;
+        const mx = e.touches[0].clientX - startX, my = e.touches[0].clientY - startY;
+        if (locked === null && (Math.abs(mx) > 6 || Math.abs(my) > 6)) locked = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+        if (locked !== "x") return;
+        dx = Math.min(0, base + mx);
+        if (dx < -90) dx = -90 + (dx + 90) / 3;
+        row.style.transform = `translateX(${dx}px)`;
+      }, { passive: true });
+      row.addEventListener("touchend", () => {
+        dragging = false;
+        row.classList.add("animate");
+        if (locked !== "x") { if (row._open) closeRow(row); return; }
+        if (dx < -45) { row.style.transform = "translateX(-90px)"; row._open = true; openRow = row; }
+        else closeRow(row);
+        dx = 0;
+      });
+      // Desktop: click a row to toggle the delete button
+      row.addEventListener("click", () => {
+        if ("ontouchstart" in window) return;
+        row.classList.add("animate");
+        row._open ? closeRow(row) : (row.style.transform = "translateX(-90px)", row._open = true, openRow = row);
+      });
+    }
+    function closeRow(row) { row.style.transform = ""; row._open = false; if (openRow === row) openRow = null; }
+
+    function render(tasks) {
+      const active = tasks.filter((t) => new Date(t.expiryTime) > new Date());
+      $("subtitle").textContent = tasks.length
+        ? `${active.length} active · ${tasks.length - active.length} expired`
+        : "";
+      content.innerHTML = "";
+
+      if (!tasks.length) {
+        content.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">☑︎</div>
+            <h2>No Tasks</h2>
+            <p>Tap + to add a task with a reminder.</p>
+            <button class="filled-btn" id="empty-add">Add Task</button>
+          </div>`;
+        $("empty-add").onclick = openSheet;
+        return;
+      }
+
+      const sorted = [...tasks].sort((a, b) => new Date(a.expiryTime) - new Date(b.expiryTime));
+      const upcoming = sorted.filter((t) => new Date(t.expiryTime) > new Date());
+      const expired = sorted.filter((t) => new Date(t.expiryTime) <= new Date());
+
+      for (const [label, list] of [["Upcoming", upcoming], ["Expired", expired]]) {
+        if (!list.length) continue;
+        const h = document.createElement("div");
+        h.className = "section-header";
+        h.textContent = label;
+        const group = document.createElement("div");
+        group.className = "group";
+        list.forEach((t) => group.append(rowFor(t)));
+        content.append(h, group);
+      }
+      const hint = document.createElement("div");
+      hint.className = "footer-hint";
+      hint.textContent = "Swipe left on a task to delete it.";
+      content.append(hint);
+    }
+
+    async function loadTasks() {
+      if (openRow) return; // don't re-render while a row is swiped open
+      try {
+        const tasks = await (await fetch("/tasks")).json();
+        for (const t of tasks) {
+          if (t.reminderSent && !alerted.has(t.id)) {
+            alerted.add(t.id);
+            if (!firstLoad) showBanner(`“${t.title}” is due ${fmt(t.expiryTime)}`);
+          }
+        }
+        firstLoad = false;
+        render(tasks);
+      } catch {}
+    }
+
+    // Reminder banner
+    let bannerTimer;
+    function showBanner(msg) {
+      $("banner-msg").textContent = msg;
+      $("banner").classList.add("show");
+      if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
+      clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(() => $("banner").classList.remove("show"), 5000);
+    }
+    $("banner").onclick = () => $("banner").classList.remove("show");
+
+    // Add task sheet
+    function toLocalInput(date) {
+      const off = date.getTimezoneOffset() * 60000;
+      return new Date(date - off).toISOString().slice(0, 16);
+    }
+    function openSheet() {
+      const now = Date.now();
+      $("title").value = "";
+      $("reminder").value = toLocalInput(new Date(now + 60 * 60000));
+      $("expiry").value = toLocalInput(new Date(now + 2 * 60 * 60000));
+      $("error").textContent = "";
+      validate();
+      $("backdrop").classList.add("open");
+      $("sheet").classList.add("open");
+      $("sheet").setAttribute("aria-hidden", "false");
+      setTimeout(() => $("title").focus(), 350);
+    }
+    function closeSheet() {
+      document.activeElement.blur();
+      $("backdrop").classList.remove("open");
+      $("sheet").classList.remove("open");
+      $("sheet").setAttribute("aria-hidden", "true");
+    }
+    function validate() {
+      $("save-task").disabled = !($("title").value.trim() && $("reminder").value && $("expiry").value);
+    }
+    ["title", "reminder", "expiry"].forEach((id) => $(id).addEventListener("input", validate));
+    $("title").addEventListener("keydown", (e) => { if (e.key === "Enter") $("title").blur(); });
+    $("open-sheet").onclick = openSheet;
+    $("cancel-sheet").onclick = closeSheet;
+    $("backdrop").onclick = closeSheet;
+
+    $("save-task").onclick = async () => {
+      $("error").textContent = "";
       const body = {
-        title: document.getElementById("title").value,
-        reminderTime: new Date(document.getElementById("reminder").value).toISOString(),
-        expiryTime: new Date(document.getElementById("expiry").value).toISOString(),
+        title: $("title").value,
+        reminderTime: new Date($("reminder").value).toISOString(),
+        expiryTime: new Date($("expiry").value).toISOString(),
       };
       const res = await fetch("/tasks", {
         method: "POST",
@@ -82,12 +449,33 @@
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        errorBox.textContent = (await res.json()).error;
+        $("error").textContent = (await res.json()).error;
         return;
       }
-      form.reset();
+      closeSheet();
       loadTasks();
-    });
+    };
+
+    // Delete confirmation
+    function askDelete(task) {
+      pendingDeleteId = task.id;
+      $("action-msg").textContent = `“${task.title}” will be deleted.`;
+      $("confirm-backdrop").classList.add("open");
+      $("action-sheet").classList.add("open");
+    }
+    function closeConfirm() {
+      $("confirm-backdrop").classList.remove("open");
+      $("action-sheet").classList.remove("open");
+      if (openRow) closeRow(openRow);
+    }
+    $("cancel-delete").onclick = closeConfirm;
+    $("confirm-backdrop").onclick = closeConfirm;
+    $("confirm-delete").onclick = async () => {
+      const id = pendingDeleteId;
+      closeConfirm();
+      await fetch(`/tasks/${id}`, { method: "DELETE" });
+      loadTasks();
+    };
 
     loadTasks();
     setInterval(loadTasks, 5000);
