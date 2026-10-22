@@ -22,8 +22,8 @@ Built with the help of Claude, an AI coding assistant.
 You need [Node.js](https://nodejs.org) installed.
 
 ```bash
-git clone <this-repo-url>
-cd TickTask
+git clone https://github.com/muhammadali0456/tick-task.git
+cd tick-task
 npm install
 npm start
 ```
